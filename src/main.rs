@@ -14,13 +14,12 @@ fn visible(entry: &DirEntry) -> bool {
     }
 }
 
-fn print_name(path: &Path, depth: &mut Vec<bool>) -> Result<()> {
-    let file_name = match path.file_name().and_then(|x| x.to_str()) {
-        Some(name) => Ok(name.to_string()),
-        None => Err(Error::new(ErrorKind::Other, "oh no!")),
-    }?;
-    println!("{}{}", get_prefix(&depth), file_name);
-    Ok(())
+fn print_name(path: &Path, depth: &mut Vec<bool>) {
+    match path.file_name().and_then(|x| x.to_str()) {
+        Some(name) =>
+            println!("{}{}", get_prefix(&depth), name.to_string()),
+        None => println!("."),
+    };
 }
 
 fn visit_paths(path: &Path, depth: &mut Vec<bool>) -> Result<()> {
@@ -30,11 +29,15 @@ fn visit_paths(path: &Path, depth: &mut Vec<bool>) -> Result<()> {
         let mut iter = read_dir(path)?.peekable();
 
         while let Some(Ok(entry)) = iter.next() {
+            depth.push(false);
             if visible(&entry) {
-                depth.push(!iter.peek().is_some());
+                if !iter.peek().is_some() {
+                    depth.pop();
+                    depth.push(true);
+                }
                 visit_paths(&entry.path(), depth)?;
-                depth.pop();
             }
+            depth.pop();
         }
     }
 
