@@ -5,8 +5,7 @@ use std::fs::{read_dir, DirEntry};
 
 fn visible(entry: &DirEntry) -> bool {
     match entry.file_name().to_str().and_then(|file_name| file_name.chars().next()) {
-        None => false,
-        Some('.') => false,
+        Some('.') | None => false,
         _ => true
     }
 }
@@ -36,16 +35,6 @@ fn visit_dirs(dir: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
     Ok(())
 }
 
-fn main() -> Result<(), io::Error> {
-    let args: Vec<String> = args().collect();
-
-    let dirname = if args.len() < 2 { "." } else { &args[1] };
-
-    let path = Path::new(dirname);
-
-    visit_dirs(path, &mut Vec::new())
-}
-
 fn get_prefix(n: &[bool]) -> String {
     match n.iter().last() {
         None => "".to_string(),
@@ -57,3 +46,12 @@ fn get_prefix(n: &[bool]) -> String {
     }
 }
 
+fn main() -> Result<(), io::Error> {
+    let args: Vec<String> = args().collect();
+
+    let dirname = if args.len() < 2 { "." } else { &args[1] };
+
+    let path = Path::new(dirname);
+
+    visit_dirs(path, &mut Vec::new())
+}
