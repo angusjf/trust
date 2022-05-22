@@ -1,32 +1,31 @@
 use std::env::{args};
 use std::path::Path;
-use std::io;
+use std::io::{Result, Error, ErrorKind};
 use std::fs::{read_dir, DirEntry};
 
 fn visible(entry: &DirEntry) -> bool {
-    match entry.file_name().to_str().and_then(|file_name| file_name.chars().next()) {
+    match entry.file_name().to_str().and_then(|name| name.chars().next()) {
         Some('.') | None => false,
         _ => true
     }
 }
 
-fn print_name(path: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
+fn print_name(path: &Path, depth: &mut Vec<bool>) -> Result<()> {
     let file_name = match path.file_name().and_then(|x| x.to_str()) {
         Some(name) => Ok(name.to_string()),
-        None => Err(io::Error::new(io::ErrorKind::Other, "oh no!"))
+        None => Err(Error::new(ErrorKind::Other, "oh no!"))
     }?;
     println!("{}{}", get_prefix(&depth), file_name);
     Ok(())
 }
 
-fn visit_paths(path: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
+fn visit_paths(path: &Path, depth: &mut Vec<bool>) -> Result<()> {
     print_name(path, depth);
 
     if path.is_dir() {
         let mut iter = read_dir(path)?.peekable();
 
-        while let Some(entry) = iter.next() {
-            let entry = entry?;
+        while let Some(Ok(entry)) = iter.next() {
             if visible(&entry) {
                 depth.push(!iter.peek().is_some());
                 visit_paths(&entry.path(), depth)?;
@@ -40,7 +39,6 @@ fn visit_paths(path: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
 
 fn get_prefix(n: &[bool]) -> String {
     match n.iter().last() {
-        None => String::from(""),
         Some(rightmost) => {
             let init = n.iter().take(n.len() - 1).map(
                 |b| if *b { "    " } else { "│   " }
@@ -48,15 +46,20 @@ fn get_prefix(n: &[bool]) -> String {
             let last = if *rightmost { "└── " } else { "├── " };
             format!("{}{}", init, last)
         }
+        None => String::from(""),
     }
 }
 
-fn main() -> Result<(), io::Error> {
+fn main() -> Result<()> {
     let args: Vec<String> = args().collect();
 
     let pathname = if args.len() < 2 { "." } else { &args[1] };
 
     let path = Path::new(pathname);
 
-    visit_paths(path, &mut Vec::new())
+    if path.exists() {
+        visit_paths(path, &mut Vec::new())
+    } else {
+        Err(Error::new(ErrorKind::Other, "file does not exist"))
+    }
 }
