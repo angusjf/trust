@@ -3,12 +3,7 @@ use std::path::Path;
 use std::io;
 use std::fs::{self, DirEntry};
 
-enum Tree<T> {
-    Leaf(T),
-    Node(T, Vec<Tree<T>>)
-}
-
-fn visible(entry: DirEntry) -> bool {
+fn visible(entry: &DirEntry) -> bool {
     match entry.file_name().to_str() {
         Some(file_name) => match file_name.chars().next() {
             Some('.') => false,
@@ -19,57 +14,44 @@ fn visible(entry: DirEntry) -> bool {
     }
 }
 
-fn visit_dirs(dir: &Path) -> io::Result<Tree<String>> {
+fn visit_dirs(dir: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
     let file_name_x = match dir.file_name().and_then(|x| x.to_str()) {
         Some(file_name) => file_name.to_string(),
         None => ".".to_string(),
     };
 
     if dir.is_dir() {
-        let mut kids = Vec::new();
+        println!("{}{}", get_prefix(&depth), file_name_x);
 
-        let it = fs::read_dir(dir)?;
-        for entry in it {
+        let mut iter = fs::read_dir(dir)?.peekable();
+
+        while let Some(entry) = iter.next() {
             let entry = entry?;
-            let path = entry.path();
-            if visible(entry) {
-                kids.push(visit_dirs(&path)?);
+            if visible(&entry) {
+                depth.push(!iter.peek().is_some());
+                visit_dirs(&entry.path(), depth)?;
+                depth.pop();
             }
         }
 
-        Ok(Tree::Node(file_name_x, kids))
+        Ok(())
     } else {
-        Ok(Tree::Leaf(file_name_x))
+        println!("{}{}", get_prefix(&depth), file_name_x);
+
+        Ok(())
     }
 }
 
 fn main() -> Result<(), &'static str> {
     let args: Vec<String> = env::args().collect();
 
-    let dirname = if args.len() < 2 { "" } else { &args[1] };
+    let dirname = if args.len() < 2 { "." } else { &args[1] };
 
     let path = Path::new(dirname);
 
-    match visit_dirs(path) {
-        Ok(tree) => Ok(view(tree, &mut Vec::new())),
-        Err(_) => Err("file system error")
-    }
-}
-
-fn view(tree: Tree<String>, depth: &mut Vec<bool>) -> () {
-    match tree {
-        Tree::Leaf(name) => println!("{}{}", get_prefix(&depth), name),
-        Tree::Node(name, kids) => {
-            println!("{}{}", get_prefix(&depth), name);
-            let mut i = 0;
-            let l = kids.len();
-            for kid in kids {
-                depth.push(i == l - 1);
-                view(kid, depth);
-                depth.pop();
-                i += 1;
-            }
-        }
+    match visit_dirs(path, &mut Vec::new()) {
+        Ok(()) => Ok(()),
+        Err(_x) => Err("file system error")
     }
 }
 
@@ -83,3 +65,4 @@ fn get_prefix(n: &[bool]) -> String {
         }
     }
 }
+
