@@ -10,23 +10,26 @@ fn visible(entry: &DirEntry) -> bool {
     }
 }
 
-fn visit_dirs(dir: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
-    let file_name_x = match dir.file_name().and_then(|x| x.to_str()) {
-        Some(file_name) => Ok(file_name.to_string()),
+fn print_name(path: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
+    let file_name = match path.file_name().and_then(|x| x.to_str()) {
+        Some(name) => Ok(name.to_string()),
         None => Err(io::Error::new(io::ErrorKind::Other, "oh no!"))
     }?;
+    println!("{}{}", get_prefix(&depth), file_name);
+    Ok(())
+}
 
-    println!("{}{}", get_prefix(&depth), file_name_x);
+fn visit_paths(path: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
+    print_name(path, depth);
 
-    if dir.is_dir() {
-
-        let mut iter = read_dir(dir)?.peekable();
+    if path.is_dir() {
+        let mut iter = read_dir(path)?.peekable();
 
         while let Some(entry) = iter.next() {
             let entry = entry?;
             if visible(&entry) {
                 depth.push(!iter.peek().is_some());
-                visit_dirs(&entry.path(), depth)?;
+                visit_paths(&entry.path(), depth)?;
                 depth.pop();
             }
         }
@@ -37,9 +40,11 @@ fn visit_dirs(dir: &Path, depth: &mut Vec<bool>) -> io::Result<()> {
 
 fn get_prefix(n: &[bool]) -> String {
     match n.iter().last() {
-        None => "".to_string(),
+        None => String::from(""),
         Some(rightmost) => {
-            let init = n.iter().take(n.len() - 1).map(|b| if *b { "    " } else { "│   " } ).collect::<String>();
+            let init = n.iter().take(n.len() - 1).map(
+                |b| if *b { "    " } else { "│   " }
+            ).collect::<String>();
             let last = if *rightmost { "└── " } else { "├── " };
             format!("{}{}", init, last)
         }
@@ -49,9 +54,9 @@ fn get_prefix(n: &[bool]) -> String {
 fn main() -> Result<(), io::Error> {
     let args: Vec<String> = args().collect();
 
-    let dirname = if args.len() < 2 { "." } else { &args[1] };
+    let pathname = if args.len() < 2 { "." } else { &args[1] };
 
-    let path = Path::new(dirname);
+    let path = Path::new(pathname);
 
-    visit_dirs(path, &mut Vec::new())
+    visit_paths(path, &mut Vec::new())
 }
