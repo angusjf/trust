@@ -19,7 +19,7 @@ fn visible(entry: DirEntry) -> bool {
     }
 }
 
-fn visit_dirs(dir: &Path, depth: i32) -> io::Result<Tree<String>> {
+fn visit_dirs(dir: &Path) -> io::Result<Tree<String>> {
     let file_name_x = match dir.file_name().and_then(|x| x.to_str()) {
         Some(file_name) => file_name.to_string(),
         None => ".".to_string(),
@@ -33,7 +33,7 @@ fn visit_dirs(dir: &Path, depth: i32) -> io::Result<Tree<String>> {
             let entry = entry?;
             let path = entry.path();
             if visible(entry) {
-                kids.push(visit_dirs(&path, depth + 1)?);
+                kids.push(visit_dirs(&path)?);
             }
         }
 
@@ -46,17 +46,13 @@ fn visit_dirs(dir: &Path, depth: i32) -> io::Result<Tree<String>> {
 fn main() -> Result<(), &'static str> {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
-        Err("usage: free src/")
-    } else {
-        let dirname = &args[1];
+    let dirname = if args.len() < 2 { "" } else { &args[1] };
 
-        let path = Path::new(dirname);
+    let path = Path::new(dirname);
 
-        match visit_dirs(path, 0) {
-            Ok(tree) => Ok(view(tree, &mut Vec::new())),
-            Err(_) => Err("file system error")
-        }
+    match visit_dirs(path) {
+        Ok(tree) => Ok(view(tree, &mut Vec::new())),
+        Err(_) => Err("file system error")
     }
 }
 
@@ -68,7 +64,7 @@ fn view(tree: Tree<String>, depth: &mut Vec<bool>) -> () {
             let mut i = 0;
             let l = kids.len();
             for kid in kids {
-                depth.push(i > l - 1);
+                depth.push(i == l - 1);
                 view(kid, depth);
                 depth.pop();
                 i += 1;
@@ -78,12 +74,10 @@ fn view(tree: Tree<String>, depth: &mut Vec<bool>) -> () {
 }
 
 fn get_prefix(n: &[bool]) -> String {
-    // (0..n.len()).map(|_| "    ").collect::<String>()
-    let mut n_rev = n.iter().rev();
-    match n_rev.next() {
+    match n.iter().last() {
         None => "".to_string(),
         Some(b1) => {
-            let init = n_rev.map(|b| if *b { "│   " } else { "    " } ).collect::<String>();
+            let init = n.iter().take(n.len() - 1).map(|b| if *b { "    " } else { "│   " } ).collect::<String>();
             let last = if *b1 { "└── " } else { "├── " };
             format!("{}{}", init, last)
         }
