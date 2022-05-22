@@ -65,23 +65,27 @@ fn view(tree: Tree<String>, depth: &mut Vec<bool>) -> () {
         Tree::Leaf(name) => println!("{}{}", get_prefix(&depth), name),
         Tree::Node(name, kids) => {
             println!("{}{}", get_prefix(&depth), name);
-            depth.push(true);
+            let mut i = 0;
+            let l = kids.len();
             for kid in kids {
+                depth.push(i > l - 1);
                 view(kid, depth);
+                depth.pop();
+                i += 1;
             }
-            depth.pop();
         }
     }
 }
 
 fn get_prefix(n: &[bool]) -> String {
     // (0..n.len()).map(|_| "    ").collect::<String>()
-    match n {
-        [] => "".to_string(),
-        _ => {
-            let n_rev = n.iter().rev();
-            n_rev.map(|b| if *b { "│   " } else { "    " } ).collect::<String>()
-            // String.concat (List.map (\b -> if b then "    " else "│   ") (List.reverse xs)) ++ (if x then "└── " else "├── ")
+    let mut n_rev = n.iter().rev();
+    match n_rev.next() {
+        None => "".to_string(),
+        Some(b1) => {
+            let init = n_rev.map(|b| if *b { "│   " } else { "    " } ).collect::<String>();
+            let last = if *b1 { "└── " } else { "├── " };
+            format!("{}{}", init, last)
         }
     }
 }
